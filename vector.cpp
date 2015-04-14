@@ -9,7 +9,7 @@ Vector::Vector (float xVal, float yVal, float zVal) {
   x = xVal; y = yVal; z = zVal;
 }
 
-void Vector::norm () {
+float Vector::norm () {
   return sqrt(pow(x,2) + pow(y,2) + pow(z,2));
 }
 
@@ -23,7 +23,7 @@ Vector Vector::cross(Vector& vec2) {
 }
 
 float Vector::dot(Vector& vec2) { 
-	return x * vec2.x +  * vec2.y + z * vec2.z;
+	return x * vec2.x + y * vec2.y + z * vec2.z;
 }
 
 Vector Vector::operator - () {
