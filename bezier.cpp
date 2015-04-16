@@ -25,7 +25,8 @@ Bezier::Bezier(Vector patch_[4][4], float threshold_, bool uniform) {
   if (uniform)
     sampleUniformly();
   else
-    sampleAdaptively();
+    ;
+    // sampleAdaptively();
 }
 
 Vertex Bezier::bezPatchInterp(float u, float v){
