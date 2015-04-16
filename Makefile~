@@ -11,7 +11,7 @@ endif
 	
 RM = /bin/rm -f
 OUTPUT = as3
-SOURCES = main.cpp vertex.cpp vector.cpp bezier.cpp
+SOURCES = main.cpp vertex.cpp vector.cpp
 OBJECTS = $(SOURCES:%.cpp=%.o)
 all: main
 main: $(OBJECTS)

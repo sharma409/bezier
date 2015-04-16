@@ -13,7 +13,7 @@
 #endif
 
 #include "bezier.h"
-
+#include <iostream>
 Bezier::Bezier(Vector patch_[4][4], float threshold_, bool uniform) {
   threshold = threshold_;
   for (int i=0; i<4; i++) {
@@ -21,11 +21,11 @@ Bezier::Bezier(Vector patch_[4][4], float threshold_, bool uniform) {
       patch[i][j]=patch_[i][j];
     }
   }
+  uniform = true;
   if (uniform)
     sampleUniformly();
   else
     sampleAdaptively();
-  }
 }
 
 Vertex Bezier::bezPatchInterp(float u, float v){
@@ -35,7 +35,7 @@ Vertex Bezier::bezPatchInterp(float u, float v){
   Vector ucurve[4];
   for(int i = 0; i < 4; i++){
     // build control points for a Bezier curve in v
-    vcurve[i] = bezCurveInterp(patch[i], u)[0];
+    vcurve[i] = bezCurveInterp(patch[i], u).point;
 
     // build control points for a Bezier curve in u
     Vector temp[4];
@@ -43,38 +43,39 @@ Vertex Bezier::bezPatchInterp(float u, float v){
     temp[1] = patch[1][i];
     temp[2] = patch[2][i];
     temp[3] = patch[3][i];
-    ucurve[i] = bezCurveInterp(temp, v)[0];
+    ucurve[i] = bezCurveInterp(temp, v).point;
   }
 
   // evaluate surface and derivative for u and v
-  p_dPdv = bezCurveInterp(vcurve, v);
-  p_dPdu = bezCurveInterp(ucurve, u);
+  Derivative p_dPdv = bezCurveInterp(vcurve, v);
+  Derivative p_dPdu = bezCurveInterp(ucurve, u);
 
   // take cross product of partials to find normal
-  Vector n = p_dPdu[1].cross(p_dPdv[1]);
+  Vector n = p_dPdu.deriv.cross(p_dPdv.deriv);
   n.normalize();
 
-  return Vertex(p_dPdu[0], n, u, v);
+  return Vertex(p_dPdu.point, n, u, v);
 };
 
-VectorDeriv Bezier::bezCurveInterp(Vector curve[4], float u){
+Derivative Bezier::bezCurveInterp(Vector curve[4], float u){
   // first, split each of the three segments
   // to form two new ones AB and BC
-  Vector A = curve[0] * (1.0-u) + curve[1] * u;
-  Vector B = curve[1] * (1.0-u) + curve[2] * u;
-  Vector C = curve[2] * (1.0-u) + curve[3] * u;
+  // Vector A = curve[0] * (1.0f-u) + curve[1] * u;
+  Vector A = curve[0] * (1.0f);
+  Vector B = curve[1] * (1.0f-u) + curve[2] * u;
+  Vector C = curve[2] * (1.0f-u) + curve[3] * u;
 
   // now, split AB and BC to form a new segment DE
-  Vector D = A * (1.0-u) + B * u;
-  Vector E = B * (1.0-u) + C * u;
+  Vector D = A * (1.0f-u) + B * u;
+  Vector E = B * (1.0f-u) + C * u;
 
-  Vector[2] p_dPdu;
+  Derivative p_dPdu;
   // finally, pick the right point on DE,
   // this is the point on the curve
-  p_dPdu[0] = D * (1.0-u) + E * u;
+  p_dPdu.point = D * (1.0f-u) + E * u;
 
   // compute derivative also
-  p_dPdu[1] = (E - D) * 3;
+  p_dPdu.deriv = (E - D) * 3;
 
   return p_dPdu;
 };
@@ -82,8 +83,8 @@ VectorDeriv Bezier::bezCurveInterp(Vector curve[4], float u){
 void Bezier::sampleUniformly() {
   for (int u = 0; u * threshold <= 1; u++) {
     for (int v = 0; v * threshold <= 1; v++) {
-      Vertex v = bezPatchInterp(u*threshold,v*threshold);
-      vertices.push_back(v);
+      Vertex vert = bezPatchInterp(u * threshold, v * threshold);
+      vertices.push_back(vert);
     }
   }
 
@@ -96,96 +97,15 @@ void Bezier::sampleUniformly() {
       indices[1] = (i+1)*total_steps+j;
       indices[2] = indices[0]+1;
       indices[3] = indices[1]+1;
-      triangles.push_back(indices);
-      triangles.push_back(indices+1);
+
+      std::vector<int> tri1 = std::vector<int>(indices,indices+3);
+      std::vector<int> tri2 = std::vector<int>(indices+1,indices+4);
+      triangles.push_back(tri1);
+      triangles.push_back(tri2);
     }
   }
 }
 
-void Bezier::sampleAdaptively() {
-  vertices.push_back(bezPatchInterp(0,0));
-  vertices.push_back(bezPatchInterp(1,0));
-  vertices.push_back(bezPatchInterp(0,1));
-  vertices.push_back(bezPatchInterp(1,1));
-  split(2,3,1);
-  split(1,0,2);
-}
-
-void Bezier::split(int i1, int i2, int i3) {
-  Vertex v1 = vertices[i1];
-  Vertex v2 = vertices[i2];
-  Vertex v3 = vertices[i3];
-  Vertex p1 = bezPatchInterp((v1.u + v2.u)*0.5, (v1.v + v2.v)*0.5);
-  Vertex p2 = bezPatchInterp((v2.u + v3.u)*0.5, (v2.v + v3.v)*0.5);
-  Vertex p3 = bezPatchInterp((v3.u + v1.u)*0.5, (v3.v + v1.v)*0.5);
-
-  bool e1 = ((v1.point + v2.point)*0.5 - p1.point).norm() > threshold;
-  bool e2 = ((v1.point + v2.point)*0.5 - p2.point).norm() > threshold;
-  bool e3 = ((v1.point + v2.point)*0.5 - p3.point).norm() > threshold;
-
-  if (!e1 && !e2 && !e3) {
-    int indices[3] = {i1,i2,i3};
-    triangles.push_back(indices);
-  }
-  else if (e1 && !e2 && !e3) {
-    vertices.push_back(p1);
-    int p1_index = vertices.size()-1;
-    split(i1,p1_index,i3);
-    split(i3,p1_index,i2);
-  }
-  else if (!e1 && e2 && !e3) {
-    vertices.push_back(p2);
-    int p2_index = vertices.size()-1;
-    split(i2,p2_index,i1);
-    split(i1,p2_index,i3);
-  }
-  else if (!e1 && !e2 && e3) {
-    vertices.push_back(p3);
-    int p3_index = vertices.size()-1;
-    split(i2,p3_index,i1);
-    split(i3,p3_index,i2);
-  }
-  else if (e1 && e2 && !e3) {
-    vertices.push_back(p1);
-    vertices.push_back(p2);
-    int p2_index = vertices.size()-1;
-    int p1_index = p2_index-1;
-    split(i1,p1_index,i3);
-    split(p1_index,p2_index,i3);
-    split(p1_index,i2,p2_index);
-  }
-  else if (!e1 && e2 && e3) {
-    vertices.push_back(p2);
-    vertices.push_back(p3);
-    int p3_index = vertices.size()-1;
-    int p2_index = p3_index-1;
-    split(i2,p2_index,i1);
-    split(p2_index,p3_index,i1);
-    split(p2_index,i3,p3_index);
-  }
-  else if (e1 && !e2 && e3) {
-    vertices.push_back(p1);
-    vertices.push_back(p3);
-    int p3_index = vertices.size()-1;
-    int p1_index = p3_index-1;
-    split(i3,p3_index,i2);
-    split(p3_index,p1_index,i2);
-    split(p3_index,i1,p1_index);
-  }
-  else {
-    vertices.push_back(p1);
-    vertices.push_back(p2);
-    vertices.push_back(p3);
-    int p3_index = vertices.size()-1;
-    int p2_index = p3_index-1;
-    int p1_index = p3_index-2;
-
-    split(i1,p1_index,p3_index);
-    split(p1_index,i2,p2_index);
-    split(p3_index,p2_index,i3);
-    split(p1_index,p2_index,p3_index);
-  }
-}
 
 void Bezier::draw() {
   for (int i=0; i < triangles.size(); i++) {

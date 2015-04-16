@@ -30,38 +30,38 @@ Vector Vector::operator - () {
 	return Vector(-x, -y, -z);
 }
 
-Vector Vector::operator + (Vector& vec2) {
+Vector Vector::operator + (const Vector& vec2) {
 	return Vector(x + vec2.x, y + vec2.y, z + vec2.z);
 }
 
-Vector& Vector::operator += (Vector& vec2) {
+Vector& Vector::operator += (const Vector& vec2) {
 	x += vec2.x; y += vec2.y; z += vec2.z;
 	return *this;
 }
 
-Vector Vector::operator - (Vector& vec2) {
+Vector Vector::operator - (const Vector& vec2) {
 	return Vector(x - vec2.x, y - vec2.y, z - vec2.z);
 }
 
-Vector& Vector::operator -= (Vector& vec2) {
+Vector& Vector::operator -= (const Vector& vec2) {
 	x -= vec2.x; y -= vec2.y; z -= vec2.z;
 	return *this;
 }
 
-Vector Vector::operator * (float c) {
+Vector Vector::operator * (const float c) {
 	return Vector(x * c, y * c, z * c);
 }
 
-Vector& Vector::operator *= (float c) {
+Vector& Vector::operator *= (const float c) {
 	x *= c; y *= c; z *= c; 
 	return *this;
 }
 
-Vector Vector::operator / (float c) {
+Vector Vector::operator / (const float c) {
 	return Vector(x / c, y / c, z / c);
 }
 
-Vector& Vector::operator /= (float c) {
+Vector& Vector::operator /= (const float c) {
 	x /= c; y /= c; z /= c; 
 	return *this;
 }

@@ -14,14 +14,14 @@ class Vector {
     Vector cross(Vector&);
     float dot(Vector&);
     Vector operator - ();
-    Vector operator + (Vector&);
-    Vector& operator += (Vector&);
-    Vector operator - (Vector&);
-    Vector& operator -= (Vector&);
-    Vector operator * (float);
-    Vector& operator *= (float);
-    Vector operator / (float);
-    Vector& operator /= (float);
+    Vector operator + (const Vector&);
+    Vector& operator += (const Vector&);
+    Vector operator - (const Vector&);
+    Vector& operator -= (const Vector&);
+    Vector operator * (const float);
+    Vector& operator *= (const float);
+    Vector operator / (const float);
+    Vector& operator /= (const float);
 };
 
 #endif
