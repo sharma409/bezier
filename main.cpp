@@ -143,80 +143,42 @@ void initScene(){
 //****************************************************
 void readBEZ(std::string filename, double threshold, bool uniform){
 
+    ifstream infile;
+    infile.open(filename.c_str());
+    std::vector<Bezier*> bez;
+    std:: vector<Vector> cv;
+    int numPatches;
+    //infile >> numPatches;
+    for (int i = 1; i < numPatches; i++){
+      for (int j = 1; j < 16;j++){
 
-	// create a file-reading object
-	ifstream fin;
-	fin.open(filename); // open a file
-	if (!fin.good())
-		printf("file not found");
-		exit(0);
-	vector<Bezier> bez;
-	float coords[48];
-	int line = 0;
-	// read each line of the file
+          infile >> cv[j-1].x;
+          infile >> cv[j-1].y;
+          infile >> cv[j-1].z;
 
-	
-	while (!fin.eof())
-	{	
-		if (line == 0){
-			continue;
-		}
-		// read an entire line into memory
-		char buf[MAX_CHARS_PER_LINE];
-		fin.getline(buf, MAX_CHARS_PER_LINE);
+      }
+    Vector vectors[4][4];
+    vectors[0][0] = cv[0];
+    vectors[0][1] = cv[1];
+    vectors[0][2] = cv[2];
+    vectors[0][3] = cv[3];
+    vectors[1][0] = cv[4];
+    vectors[1][1] = cv[5];
+    vectors[1][2] = cv[6];
+    vectors[1][3] = cv[7];
+    vectors[2][0] = cv[8];
+    vectors[2][1] = cv[9];
+    vectors[2][2] = cv[10];
+    vectors[2][3] = cv[11];
+    vectors[3][0] = cv[12];
+    vectors[3][1] = cv[13];
+    vectors[3][2] = cv[14];
+    vectors[3][3] = cv[15];
 
-		// parse the line into blank-delimited tokens
-		int n = 0; // a for-loop index
+    bez[numPatches - 1] = new Bezier(vectors,threshold, uniform);
+  }
 
-		// array to store memory addresses of the tokens in buf
-		const char* token[MAX_TOKENS_PER_LINE] = {}; // initialize to 0
-
-		// parse the line
-		token[0] = strtok(buf, DELIMITER); // first token
-		if (token[0]) // zero if line is blank
-		{
-			for (n = 1; n < MAX_TOKENS_PER_LINE; n++)
-			{
-				token[n] = strtok(0, DELIMITER); // subsequent tokens
-				if (!token[n]) break; // no more tokens
-			}
-		}
-		//place tokens into array of coords
-		for (int i = 0; i < n; i++) // n = #of tokens
-			coords[line * 4 + i] = atof(token[i]);
-
-		// process (print) the tokens
-		if (line == 4){ //process coords into bez object
-			Vector v1 =  Vector(coords[0], coords[1], coords[2]);
-			Vector v2 = Vector(coords[12], coords[13], coords[14]);
-			Vector v3 = Vector(coords[24], coords[25], coords[26]);
-			Vector v4 = Vector(coords[36], coords[37], coords[38]);
-
-			Vector v5 = Vector(coords[3], coords[4], coords[5]);
-			Vector v6 = Vector(coords[15], coords[16], coords[17]);
-			Vector v7 = Vector(coords[27], coords[28], coords[29]);
-			Vector v8 = Vector(coords[39], coords[40], coords[41]);
-
-			Vector v9 = Vector(coords[6], coords[7], coords[8]);
-			Vector v10 = Vector(coords[18], coords[19], coords[20]);
-			Vector v11 = Vector(coords[30], coords[31], coords[32]);
-			Vector v12 = Vector(coords[42], coords[43], coords[44]);
-
-			Vector v13 = Vector(coords[9], coords[10], coords[11]);
-			Vector v14 = Vector(coords[21], coords[22], coords[23]);
-			Vector v15 = Vector(coords[33], coords[34], coords[35]);
-			Vector v16 = Vector(coords[45], coords[46], coords[47]);
-		
-			Vector vectors[4][4] = {v1,v2,v3,v4,
-									v5,v6,v7,v8,
-									v9,v10,v11,v12,
-									v13,v14,v15,v16};
-			bez.push_back(Bezier(vectors,threshold,uniform));
-			line = -1;
-		}
-		
-		line++;
-	}
+	   
 }
 
 void argParser(int* argc, char** argv) {
