@@ -145,38 +145,52 @@ void readBEZ(std::string filename, double threshold, bool uniform){
 
     ifstream infile;
     infile.open(filename.c_str());
-    std::vector<Bezier*> bez;
-    std:: vector<Vector> cv;
+    //std::vector<Bezier> bez;
+    
+    std::vector<Bezier> bez;
     int numPatches;
-    //infile >> numPatches;
-    for (int i = 1; i < numPatches; i++){
-      for (int j = 1; j < 16;j++){
-
-          infile >> cv[j-1].x;
-          infile >> cv[j-1].y;
-          infile >> cv[j-1].z;
-
+    infile >> numPatches;
+    //cout << numPatches;
+    //printf("code reaches here");
+    
+    for (int i = 1; i <= numPatches; i++){
+      std::vector<Vector> cv;
+      for (int j = 1; j <= 16; j++){
+        float x,y,z;
+        infile >> x;
+        infile >> y;
+        infile >> z;
+        //cout << "line is " << j << " and is " << x << " " << y << " " << z << endl;
+        Vector v(x,y,z);
+        cv.push_back(v);
       }
-    Vector vectors[4][4];
-    vectors[0][0] = cv[0];
-    vectors[0][1] = cv[1];
-    vectors[0][2] = cv[2];
-    vectors[0][3] = cv[3];
-    vectors[1][0] = cv[4];
-    vectors[1][1] = cv[5];
-    vectors[1][2] = cv[6];
-    vectors[1][3] = cv[7];
-    vectors[2][0] = cv[8];
-    vectors[2][1] = cv[9];
-    vectors[2][2] = cv[10];
-    vectors[2][3] = cv[11];
-    vectors[3][0] = cv[12];
-    vectors[3][1] = cv[13];
-    vectors[3][2] = cv[14];
-    vectors[3][3] = cv[15];
+      Vector vectors[4][4];
+      vectors[0][0] = cv[0];
+      vectors[0][1] = cv[1];
+      vectors[0][2] = cv[2];
+      vectors[0][3] = cv[3];
+      vectors[1][0] = cv[4];
+      vectors[1][1] = cv[5];
+      vectors[1][2] = cv[6];
+      vectors[1][3] = cv[7];
+      vectors[2][0] = cv[8];
+      vectors[2][1] = cv[9];
+      vectors[2][2] = cv[10];
+      vectors[2][3] = cv[11];
+      vectors[3][0] = cv[12];
+      vectors[3][1] = cv[13];
+      vectors[3][2] = cv[14];
+      vectors[3][3] = cv[15];
 
-    bez[numPatches - 1] = new Bezier(vectors,threshold, uniform);
-  }
+      /*for (int row = 0; row < 4; row++){
+        for (int col = 0; col < 4; col++){
+          cout << vectors[row][col].x << " " << vectors[row][col].y << " " << vectors[row][col].z << " " << endl;
+        }
+      }*/
+      Bezier nbez(vectors,threshold,uniform);
+      //free(*vectors);
+      bez.push_back(nbez);
+    }
 
 	   
 }
