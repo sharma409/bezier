@@ -36,25 +36,15 @@ using std::ifstream;
 
 #include <cstring>
 
-#define SPACEBAR 32
 const int MAX_CHARS_PER_LINE = 512;
 const int MAX_TOKENS_PER_LINE = 12;
 const char* const DELIMITER = " ";
 
 using std::vector;
 
-enum Shading {
-  FLAT,
-  SMOOTH
-};
-Shading shading = SMOOTH;
-
-enum Mode {
-  FILLED,
-  WIREFRAME,
-  HIDDEN
-};
-Mode mode = FILLED;
+bool smooth = true;
+bool filled = true;
+bool hidden = false;
 
 class Viewport;
 
@@ -72,24 +62,13 @@ std::vector<std::vector<Bezier> > bez;
 std::vector<double> bezCenters;
 std::vector<double> trans;
 std::vector<double> rot;
-int current_obj = 0;
 
-float curr_fill_amb[3] = {0.3f, 0.0f, 0.0f};
-float curr_fill_diff[3] = {1.0f, 0.0f, 0.0f};
-float curr_fill_spec[3] = {1.0f, 1.0f, 1.0f};
-
-float curr_wire_amb[3] = {1.0f, 0.0f, 0.0f};
-float curr_wire_diff[3] = {0.5f, 0.0f, 0.0f};
-float curr_wire_spec[3] = {0.0f, 0.0f, 0.0f};
-
-float fill_amb[3] = {0.0f, 0.3f, 0.3f};
-float fill_diff[3] = {0.0f, 1.0f, 1.0f};
-float fill_spec[3] = {1.0f, 1.0f, 1.0f};
-
-float wire_amb[3] = {0.0f, 1.0f, 1.0f};
-float wire_diff[3] = {0.0f, 0.5f, 0.5f};
-float wire_spec[3] = {0.0f, 0.0f, 0.0f};
-
+float filled_ambient[3] = {0.0f, 0.2f, 0.0f};
+float filled_diffuse[3] = {0.0f, 1.0f, 0.0f};
+float filled_specular[3] = {1.0f, 1.0f, 1.0f};
+float wired_ambient[3] = {0.0f, 1.0f, 0.0f};
+float wire_diff[3] = {0.0f, 0.4f, 0.0f};
+float wired_specular[3] = {0.0f, 0.0f, 0.0f};
 
 //****************************************************
 // reshape viewport if the window is resized
@@ -100,12 +79,9 @@ void myReshape(int w, int h) {
   
   glViewport (0,0,viewport.w,viewport.h);
   glMatrixMode(GL_PROJECTION);
-  if (h == 0) {
-    h = 5;
-  }
-  float ratio = (float)w /(float)h;
+  float r = (float)w /(float)h;
   glLoadIdentity();
-  gluPerspective(45.0f, ratio, 0.1f, 200.0f);
+  gluPerspective(45.0f, r, 0.1f, 200.0f);
 }
 
 
@@ -113,24 +89,15 @@ void myReshape(int w, int h) {
 // Simple init function
 //****************************************************
 void initScene(){
-
-  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-  glClearDepth(1.0f);
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LEQUAL);
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
-//   GLuint depthTexture;
-//   glGenTextures(1, &depthTexture);
-//   glBindTexture(GL_TEXTURE_2D, depthTexture);
-
-  GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-  GLfloat mat_shininess[] = { 50.0 };
+  GLfloat material_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+  GLfloat material_shininess[] = { 50.0 };
   GLfloat light_position[] = { 1.0, 1.0, 1.0, 0.0 };
-  glClearColor (0.0, 0.0, 0.0, 0.0);
-
-  glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-  glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+  glMaterialfv(GL_FRONT, GL_SPECULAR, material_specular);
+  glMaterialfv(GL_FRONT, GL_SHININESS, material_shininess);
   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
   glEnable(GL_LIGHTING);
@@ -139,18 +106,86 @@ void initScene(){
 }
 
 //****************************************************
-// read in a bez file
+// read in a bez file and parse the arguments of command line
 //****************************************************
-void readBEZ(std::string filename, double threshold, bool uniform){
+void readBEZ(std::string filename, double param, bool adaptive) {
+  Vector bezPatch[4][4];
+  std::vector<Bezier> bezPatches;
 
+  std::vector< std::string > items;
+  std::string item;
+  std::string line;
+
+  std::ifstream scnFile(filename.c_str());
+
+  if (scnFile.is_open()) {
+    int row = 0;
+    while (std::getline(scnFile,line)) {
+      std::replace(line.begin(),line.end(),'\r',' ');
+      std::stringstream lineStream(line);
+
+      items.clear();
+      while(std::getline(lineStream, item, ' ')) {
+        if (item.size() < 1) continue;
+        else items.push_back(item);
+      }
+
+      if (items.size() == 12) {
+        for (int i = 0; i < 4; i++){
+          bezPatch[row][i] = Vector(std::atof(items[i*3].c_str()),std::atof(items[i*3+1].c_str()),std::atof(items[i*3+2].c_str()));
+        }
+        row++;
+        if (row==4) {
+          row = 0;
+          bezPatches.push_back(Bezier(bezPatch, param, adaptive));
+        }
+      }
+      else continue;
+    }
+    bez.push_back(bezPatches);
+  }
+  else fprintf(stderr, "File Not Found");
+}
+
+void argParser(int* argc, char** argv) {
+  std::string filename = "";
+  bool uniform = true;
+  double threshold = 0.1;
+
+  std::string arg;
+  for (int i=1; i < *argc; i++) {
+    arg = argv[i];
+    if (i==1) {
+      filename = arg;
+    }
+    else if (i==2 && std::atof(argv[i])!=0) {
+      threshold = std::atof(argv[i]);
+    }
+    else if (arg.compare("-a")==0) {
+      uniform = false;
+    }
+  }
+
+  readBEZ(filename,threshold,uniform);
+
+  double center[3] = {0,0,0};
+  double translation[3] = {0,0,-10};
+  double rotation[3] = {0,0,0};
+
+  bezCenters = std::vector<double>(center,center+3);
+  trans = std::vector<double>(translation,translation+3);
+  rot = std::vector<double>(rotation,rotation+3);
+}
+
+void readBEZbroken(std::string filename, double threshold, bool uniform){
 
 	// create a file-reading object
 	ifstream fin;
-	fin.open(filename); // open a file
+	fin.open(filename.c_str()); // open a file
 	if (!fin.good())
 		printf("file not found");
 		exit(0);
-	vector<Bezier> bez;
+	vector<Bezier> bezi;
 	float coords[48];
 	int line = 0;
 	// read each line of the file
@@ -211,7 +246,8 @@ void readBEZ(std::string filename, double threshold, bool uniform){
 									v5,v6,v7,v8,
 									v9,v10,v11,v12,
 									v13,v14,v15,v16};
-			bez.push_back(Bezier(vectors,threshold,uniform));
+			bezi.push_back(Bezier(vectors,threshold,uniform));
+      bez.push_back(bezi);
 			line = -1;
 		}
 		
@@ -219,64 +255,25 @@ void readBEZ(std::string filename, double threshold, bool uniform){
 	}
 }
 
-void argParser(int* argc, char** argv) {
-  std::string input_filename = "";
-  std::string ext = "";
-  bool uniform = true;
-  double threshold = 0.1;
-
-  std::string arg;
-  for (int i=1; i < *argc; i++) {
-    arg = argv[i];
-
-    if (i==1) {
-      input_filename = arg;
-
-      int dotIndex = input_filename.find_last_of(".");
-      ext = input_filename.substr(dotIndex+1,input_filename.size());
-      
-    }
-    else if (i==2 && std::atof(argv[i])!=0) {
-      threshold = std::atof(argv[i]);
-    }
-    else if (arg.compare("-a")==0) {
-      uniform = false;
-    }
-  }
-
-  if (ext.compare("bez")==0) {
-    readBEZ(input_filename,threshold,uniform);
-  }
-
-  //Initial offset to fit model on screen
-  double center[3] = {0,0,0};
-  bezCenters = std::vector<double>(center,center+3);
-  double translation[3] = {0,0,-10};
-  trans = std::vector<double>(translation,translation+3);
-  double rotation[3] = {0,0,0};
-  rot = std::vector<double>(rotation,rotation+3);
-}
-
 //****************************************************
-// functions that do the actual drawing of stuff
+// draw the surfaces
 //***************************************************
 void setColor() {
-  if (mode==FILLED) { 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, curr_fill_amb);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, curr_fill_diff);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, curr_fill_spec);
+  if (filled) { 
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, filled_ambient);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, filled_diffuse);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, filled_specular);
   } else {
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, curr_wire_amb);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, curr_wire_diff);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, curr_wire_spec);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, wired_ambient);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, wire_diff);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, wired_specular);
   } 
 }
 
 void drawObjects() {
-  int obj_index;
   for (int k=0; k<bez.size(); k++){
     setColor();
-    glLoadIdentity(); // make sure transformation is "zero'd"
+    glLoadIdentity();
     glTranslatef(trans[0], trans[1], trans[2]);
     glRotatef(rot[0],1.0,0.0,0.0);
     glRotatef(rot[1],0.0,1.0,0.0);
@@ -295,10 +292,10 @@ void myDisplay() {
   glMatrixMode(GL_MODELVIEW);			        // indicate we are specifying camera transformations
 
   // Code to draw objects
-  if (shading==FLAT) glShadeModel(GL_FLAT);
-  else glShadeModel(GL_SMOOTH);
+  if (smooth) glShadeModel(GL_SMOOTH);
+  else glShadeModel(GL_FLAT);
 
-  if (mode==FILLED) {
+  if (filled) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   }
   else {
@@ -306,8 +303,8 @@ void myDisplay() {
   }
   drawObjects();
 
-  if (mode==HIDDEN) {
-    // http://www.glprogramming.com/red/chapter14.html#name16
+  if (hidden) {
+    // Source for code: http://www.glprogramming.com/red/chapter14.html#name16
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0, 1.0);
@@ -327,68 +324,50 @@ void myDisplay() {
 // function to process keyboard input
 //***************************************************
 void myKeyboard(unsigned char key, int x, int y) {
+  if (key == 's') {
+      smooth = !(smooth);
+      hidden = false;
+  }
+  if (key == 'w') {
+      filled = !(filled);
+      hidden = false;
+  }
+  if (key == 'h') {
+      hidden = !(hidden);
+      filled = false;
+  }
+  if (key == '+') {
+    trans[2]+=.2;
+  }
+  if (key == '-') {
+    trans[2]-=.2;
+  }
   if (key == 'q') {
     exit(0);
   }
-  if (key == 's') {
-    //toggle between flat and smooth shading
-    if (shading==SMOOTH) shading=FLAT;
-    else shading=SMOOTH;
-  }
-  if (key == 'w') {
-    //toggle between filled and wireframe mode
-    if (mode!=WIREFRAME) mode=WIREFRAME;
-    else mode=FILLED;
-  }
-  if (key == 'h') {
-    //toggle between filled and hidden-line mode
-    if (mode!=HIDDEN) mode=HIDDEN;
-    else mode=WIREFRAME;
-  }
-  if (key == '+') {
-    trans[2]+=0.1;
-  }
-  if (key == '-') {
-    trans[2]-=0.1;
-  }
-
   glutPostRedisplay();
 }
 
 void myArrowKeys(int key, int x, int y) {
-  int modifier = glutGetModifiers();
-  if (modifier&GLUT_ACTIVE_SHIFT != 0) {
-    //Translate
-    switch(key) {
-      case GLUT_KEY_UP:
-        trans[1]+=0.1;
-        break;
-      case GLUT_KEY_DOWN:
-        trans[1]-=0.1;
-        break;
-      case GLUT_KEY_LEFT:
-        trans[0]-=0.1;
-        break;
-      case GLUT_KEY_RIGHT:
-        trans[0]+=0.1;
-        break;
-    }
+  int mod = glutGetModifiers();
+  if (mod & GLUT_ACTIVE_SHIFT != 0) {
+    if (key == GLUT_KEY_UP)
+        trans[1]+=0.2;
+    else if (key == GLUT_KEY_DOWN)
+        trans[1]-=0.2;
+    else if (key == GLUT_KEY_LEFT)
+        trans[0]-=0.2;
+    else
+        trans[0]+=0.2;
   } else {
-    //Rotate
-    switch(key) {
-      case GLUT_KEY_UP:
+    if (key == GLUT_KEY_UP)
         rot[0]+=2;
-        break;
-      case GLUT_KEY_DOWN:
+    else if (key == GLUT_KEY_DOWN)
         rot[0]-=2;
-        break;
-      case GLUT_KEY_LEFT:
+    else if (key == GLUT_KEY_LEFT)
         rot[1]-=2;
-        break;
-      case GLUT_KEY_RIGHT:
+    else
         rot[1]+=2;
-        break;
-    }
   }
 }
 
@@ -398,7 +377,7 @@ void myArrowKeys(int key, int x, int y) {
 //****************************************************
 int main(int argc, char *argv[]) {
 
-  //Parses Args
+  //Parse Args
   argParser(&argc, argv);
 
 
@@ -419,10 +398,11 @@ int main(int argc, char *argv[]) {
 
   initScene();							// quick function to set up scene
 
-  glutKeyboardFunc(myKeyboard);           // function to run when its time to read keyboard input
-  glutSpecialFunc(myArrowKeys);           // function to run when arrow keys are pressed
   glutDisplayFunc(myDisplay);             // function to run when its time to draw something
   glutReshapeFunc(myReshape);             // function to run when the window gets resized
+  glutKeyboardFunc(myKeyboard);           // function to run when its time to read keyboard input
+  glutSpecialFunc(myArrowKeys);           // function to run when arrow keys are pressed
+
   glutMainLoop();                         // infinite loop that will keep drawing and resizing
 
   return 0;

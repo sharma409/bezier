@@ -21,8 +21,6 @@ class Bezier {
     std::vector<std::vector<int> > triangles;
 
     void sampleUniformly();
-    // void sampleAdaptively();
-    // void split(int, int, int);
 
     Bezier(Vector patch[4][4], float param, bool adaptive);
     Derivative bezCurveInterp(Vector curve[4], float u);
