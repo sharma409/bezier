@@ -147,36 +147,6 @@ void readBEZ(std::string filename, double param, bool adaptive) {
   else fprintf(stderr, "File Not Found");
 }
 
-void argParser(int* argc, char** argv) {
-  std::string filename = "";
-  bool uniform = true;
-  double threshold = 0.1;
-
-  std::string arg;
-  for (int i=1; i < *argc; i++) {
-    arg = argv[i];
-    if (i==1) {
-      filename = arg;
-    }
-    else if (i==2 && std::atof(argv[i])!=0) {
-      threshold = std::atof(argv[i]);
-    }
-    else if (arg.compare("-a")==0) {
-      uniform = false;
-    }
-  }
-
-  readBEZ(filename,threshold,uniform);
-
-  double center[3] = {0,0,0};
-  double translation[3] = {0,0,-10};
-  double rotation[3] = {0,0,0};
-
-  bezCenters = std::vector<double>(center,center+3);
-  trans = std::vector<double>(translation,translation+3);
-  rot = std::vector<double>(rotation,rotation+3);
-}
-
 void readBEZbroken(std::string filename, double threshold, bool uniform){
 
     ifstream infile;
@@ -226,6 +196,37 @@ void readBEZbroken(std::string filename, double threshold, bool uniform){
       Bezier nbez(vectors,threshold,uniform);
       //free(*vectors);
       bez.push_back(nbez);
+  }
+}
+
+void argParser(int* argc, char** argv) {
+  std::string filename = "";
+  bool uniform = true;
+  double threshold = 0.1;
+
+  std::string arg;
+  for (int i=1; i < *argc; i++) {
+    arg = argv[i];
+    if (i==1) {
+      filename = arg;
+    }
+    else if (i==2 && std::atof(argv[i])!=0) {
+      threshold = std::atof(argv[i]);
+    }
+    else if (arg.compare("-a")==0) {
+      uniform = false;
+    }
+  }
+
+  readBEZ(filename,threshold,uniform);
+
+  double center[3] = {0,0,0};
+  double translation[3] = {0,0,-10};
+  double rotation[3] = {0,0,0};
+
+  bezCenters = std::vector<double>(center,center+3);
+  trans = std::vector<double>(translation,translation+3);
+  rot = std::vector<double>(rotation,rotation+3);
 }
 
 //****************************************************
